@@ -24,3 +24,7 @@ self.addEventListener('fetch', event => {
         })
     );
 });
+// اس کوڈ سے سروس ورکر فوراً ایکٹیو ہو جائے گا
+self.addEventListener('activate', event => {
+    event.waitUntil(clients.claim());
+});
