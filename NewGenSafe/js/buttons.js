@@ -94,44 +94,40 @@ async function exportDatabase() {
 
     let key = await deriveAESKey(pass, pin);
     let encStr = await encryptData(JSON.stringify(currentDatabase), key);
-    let jsonData = JSON.stringify({data: encStr}, null, 2);
     
-    let fileName = "my_gensafe_vault.json";
+    // 1. ڈیٹا کو File اور Blob آبجیکٹ میں تبدیل کرنا (شیئرنگ کے لیے لازمی شرط)
+    const fileContent = JSON.stringify({data: encStr}, null, 2);
+    const fileName = "my_gensafe_vault.json";
+    const blob = new Blob([fileContent], { type: 'application/json' });
+    const file = new File([blob], fileName, { type: 'application/json' });
 
-    // یہ لائن چیک کرے گی کہ کیا ہم باقاعدہ اینڈرائیڈ ایپ (APK) کے اندر ہیں؟
-    let isNativeAPK = (typeof window.Capacitor !== "undefined" && window.Capacitor.isNativePlatform());
+    const successMessage = `💾 Vault Secured! ${currentDatabase.length} account(s) using AES-256.`;
 
-    if (isNativeAPK) {
-        // =========================================
-        // 1. یہ حصہ صرف اور صرف موبائل ایپ (APK) میں چلے گا
-        // =========================================
-        let file = new File([jsonData], fileName, { type: "application/json" });
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-            try {
-                await navigator.share({
-                    files: [file],
-                    title: 'GenSafe Vault Backup',
-                    text: 'Here is your encrypted GenSafe backup file.'
-                });
-                logToUI(`💾 Vault Shared Successfully! Secured ${currentDatabase.length} account(s).`, 'log-info');
-            } catch (err) {
-                console.log("Share cancelled.", err);
-            }
-        }
+    // 2. اسمارٹ چیک: کیا یہ ڈیوائس/ایپ مقامی شیئرنگ (Native Share) کو سپورٹ کرتی ہے؟
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        
+        // اگر موبائل ایپ (APK) ہے تو مقامی Share/Save مینو کھولیں
+        navigator.share({
+            files: [file],
+            title: 'GenSafe Vault',
+            text: 'My Encrypted Password Vault Backup'
+        }).then(() => {
+            logToUI(successMessage + " (Shared successfully)", 'log-info');
+        }).catch((err) => {
+            console.log("Sharing cancelled by user.");
+        });
+
     } else {
-        // =========================================
-        // 2. یہ حصہ صرف ویب براؤزر (لنک) میں چلے گا
-        // =========================================
-        let blob = new Blob([jsonData], { type: "application/json" });
-        let url = URL.createObjectURL(blob);
+        // اگر کمپیوٹر کا براؤزر ہے تو پرانے طریقے سے براہ راست ڈاؤنلوڈ کروائیں
         let a = document.createElement('a');
-        a.href = url;
+        a.href = URL.createObjectURL(blob);
         a.download = fileName;
-        document.body.appendChild(a); 
-        a.click(); 
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url); // فون کی میموری کلین کرنے کے لیے
-        logToUI(`💾 Vault Downloaded! Secured ${currentDatabase.length} account(s).`, 'log-info');
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(a.href); // میموری صاف کرنے کے لیے
+        
+        logToUI(successMessage + " (Downloaded)", 'log-info');
     }
 }
 
