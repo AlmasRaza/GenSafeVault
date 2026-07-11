@@ -20,20 +20,19 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          # یہاں جاوا کا ورژن 21 کر دیا گیا ہے
+          java-version: '21'
 
       - name: Create folder and copy files
         run: |
           mkdir www
-          # یہ آپ کے NewGenSafe فولڈر کی تمام فائلوں اور ذیلی فولڈرز کو کاپی کرے گا
           rsync -a NewGenSafe/ www/
-          # یہ ایپ کے اندر آپ کی مین فائل کو index.html بنا دے گا تاکہ ایپ درست کھلے
           mv www/GenSafe.html www/index.html
 
       - name: Install Capacitor & Create App
         run: |
           npm init -y
-          npm install @capacitor/cli @capacitor/core @capacitor/android
+          npm install @capacitor/cli@latest @capacitor/core@latest @capacitor/android@latest
           npx cap init GenSafe com.offline.gensafe --web-dir www
           npx cap add android
           npx cap sync android
@@ -42,7 +41,8 @@ jobs:
         working-directory: android
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug
+          # stacktrace کا اضافہ کیا گیا ہے تاکہ کوئی بھی ایرر چھپے نہیں
+          ./gradlew assembleDebug --stacktrace
 
       - name: Upload APK for Download
         uses: actions/upload-artifact@v4
