@@ -93,43 +93,41 @@ async function exportDatabase() {
     if (currentDatabase.length === 0) return alert("Database is empty. Nothing to export.");
 
     try {
-        // 1. انکرپشن کا عمل (جو پہلے سے موجود ہے)
+        // 1. انکرپشن کا عمل (جو آپ کا پہلے سے کام کر رہا ہے)
         let key = await deriveAESKey(pass, pin);
         let encStr = await encryptData(JSON.stringify(currentDatabase), key);
         
-        // 2. ڈیٹا کو فائل (File Object) میں تبدیل کرنا
         const fileName = "my_gensafe_vault.json";
         const jsonContent = JSON.stringify({data: encStr}, null, 2);
         const blob = new Blob([jsonContent], { type: 'application/json' });
         const file = new File([blob], fileName, { type: 'application/json' });
 
-        // 3. اسمارٹ چیک: کیا یہ ڈیوائس/ایپ مقامی شیئرنگ کو سپورٹ کرتی ہے؟
-        // یہ چیک کرے گا کہ آیا ہم اینڈرائیڈ ایپ میں ہیں یا عام براؤزر میں
+        // 2. اینڈرائیڈ ایپ (PWA) کے لیے شیئرنگ کا آپشن
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
-            
-            // اگر اینڈرائیڈ ایپ ہے تو "Share Sheet" کھولیں (فائل مینیجر/واٹس ایپ وغیرہ)
             await navigator.share({
                 files: [file],
                 title: 'GenSafe Vault',
                 text: 'Your encrypted GenSafe backup'
             });
             logToUI(`💾 Vault Shared/Saved via System!`, 'log-info');
-
-        } else {
-            // اگر کمپیوٹر کا عام براؤزر ہے تو پرانے طریقے سے ڈاؤنلوڈ کروائیں
-            const url = URL.createObjectURL(blob);
-            let a = document.createElement('a');
-            a.href = url;
-            a.download = fileName;
-            document.body.appendChild(a); 
-            a.click(); 
-            a.remove();
-            URL.revokeObjectURL(url);
-            
-            logToUI(`💾 Vault Downloaded!`, 'log-info');
+            return; // اگر شیئر ہو گیا تو فنکشن یہیں ختم
         }
+
+        // 3. براؤزر کے لیے ڈاؤنلوڈ کا طریقہ (آپ کا اصل کوڈ، اب Blob کے ساتھ)
+        // یہ آپ کے پرانے طریقے کا بہتر اور محفوظ ورژن ہے
+        const url = URL.createObjectURL(blob);
+        let a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a); 
+        a.click(); 
+        a.remove();
+        URL.revokeObjectURL(url); // میموری صاف کرنے کے لیے
+        
+        logToUI(`💾 Vault Saved! Secured ${currentDatabase.length} account(s) using AES-256 Encryption.`, 'log-info');
+
     } catch (err) {
-        // اگر صارف شیئرنگ کو کینسل کر دے تو کوئی ایرر نہ دکھائیں
+        // اگر صارف شیئر کینسل کر دے تو کوئی ایرر نہ دکھائیں
         if (err.name !== 'AbortError') {
             console.error("Export Error:", err);
             alert("❌ Error: " + err.message);
