@@ -14,7 +14,6 @@ jobs:
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
-          # یہاں ہم نے Node.js کے ورژن کو 20 سے 22 کر دیا ہے
           node-version: '22'
 
       - name: Install Java
@@ -35,6 +34,15 @@ jobs:
           npm install @capacitor/cli@latest @capacitor/core@latest @capacitor/android@latest
           npx cap init GenSafe com.offline.gensafe --web-dir www
           npx cap add android
+          
+          # ==========================================
+          # آئیکون سیٹ کرنے کا نیا کوڈ
+          npm install @capacitor/assets@latest --save-dev
+          mkdir -p assets
+          cp NewGenSafe/icons/icon-512.png assets/icon.png
+          npx @capacitor/assets generate --android
+          # ==========================================
+
           npx cap sync android
 
       - name: Build the APK File
