@@ -98,33 +98,43 @@ async function exportDatabase() {
     
     let fileName = "my_gensafe_vault.json";
 
-    // 1. اینڈرائیڈ کے لیے باقاعدہ فائل آبجیکٹ بنانا
-    let file = new File([jsonData], fileName, { type: "application/json" });
+    // یہ لائن چیک کرے گی کہ کیا ہم باقاعدہ اینڈرائیڈ ایپ (APK) کے اندر ہیں؟
+    let isNativeAPK = (typeof window.Capacitor !== "undefined" && window.Capacitor.isNativePlatform());
 
-    // 2. چیک کرنا کہ کیا موبائل کا شیئر سسٹم موجود ہے
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        try {
-            await navigator.share({
-                files: [file],
-                title: 'GenSafe Vault Backup',
-                text: 'Here is your encrypted GenSafe backup file.'
-            });
-            logToUI(`💾 Vault Shared Successfully! Secured ${currentDatabase.length} account(s).`, 'log-info');
-        } catch (err) {
-            console.log("Share cancelled or failed.", err);
+    if (isNativeAPK) {
+        // =========================================
+        // 1. یہ حصہ صرف اور صرف موبائل ایپ (APK) میں چلے گا
+        // =========================================
+        let file = new File([jsonData], fileName, { type: "application/json" });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            try {
+                await navigator.share({
+                    files: [file],
+                    title: 'GenSafe Vault Backup',
+                    text: 'Here is your encrypted GenSafe backup file.'
+                });
+                logToUI(`💾 Vault Shared Successfully! Secured ${currentDatabase.length} account(s).`, 'log-info');
+            } catch (err) {
+                console.log("Share cancelled.", err);
+            }
         }
-    } 
-    // 3. اگر ایپ ویب براؤزر میں کھلی ہو تو پرانا سیدھا ڈاؤنلوڈ والا طریقہ
-    else {
+    } else {
+        // =========================================
+        // 2. یہ حصہ صرف ویب براؤزر (لنک) میں چلے گا
+        // =========================================
+        let blob = new Blob([jsonData], { type: "application/json" });
+        let url = URL.createObjectURL(blob);
         let a = document.createElement('a');
-        a.href = "data:text/json;charset=utf-8," + encodeURIComponent(jsonData);
+        a.href = url;
         a.download = fileName;
         document.body.appendChild(a); 
         a.click(); 
-        a.remove();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url); // فون کی میموری کلین کرنے کے لیے
         logToUI(`💾 Vault Downloaded! Secured ${currentDatabase.length} account(s).`, 'log-info');
     }
 }
+
 
 function flushMemory() {
     currentDatabase = []; 
