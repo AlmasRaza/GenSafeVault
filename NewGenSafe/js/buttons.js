@@ -92,17 +92,49 @@ async function exportDatabase() {
     if(!pass || !pin) return alert("Master Password and PIN are required for securely encrypting your vault.");
     if (currentDatabase.length === 0) return alert("Database is empty. Nothing to export.");
 
-    let key = await deriveAESKey(pass, pin);
-    let encStr = await encryptData(JSON.stringify(currentDatabase), key);
-    
-    let a = document.createElement('a');
-    a.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({data: encStr}, null, 2));
-    a.download = "my_gensafe_vault.json";
-    document.body.appendChild(a); 
-    a.click(); 
-    a.remove();
-    
-    logToUI(`💾 Vault Saved! Secured ${currentDatabase.length} account(s) using AES-256 Encryption.`, 'log-info');
+    try {
+        // 1. انکرپشن کا عمل (جو پہلے سے موجود ہے)
+        let key = await deriveAESKey(pass, pin);
+        let encStr = await encryptData(JSON.stringify(currentDatabase), key);
+        
+        // 2. ڈیٹا کو فائل (File Object) میں تبدیل کرنا
+        const fileName = "my_gensafe_vault.json";
+        const jsonContent = JSON.stringify({data: encStr}, null, 2);
+        const blob = new Blob([jsonContent], { type: 'application/json' });
+        const file = new File([blob], fileName, { type: 'application/json' });
+
+        // 3. اسمارٹ چیک: کیا یہ ڈیوائس/ایپ مقامی شیئرنگ کو سپورٹ کرتی ہے؟
+        // یہ چیک کرے گا کہ آیا ہم اینڈرائیڈ ایپ میں ہیں یا عام براؤزر میں
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            
+            // اگر اینڈرائیڈ ایپ ہے تو "Share Sheet" کھولیں (فائل مینیجر/واٹس ایپ وغیرہ)
+            await navigator.share({
+                files: [file],
+                title: 'GenSafe Vault',
+                text: 'Your encrypted GenSafe backup'
+            });
+            logToUI(`💾 Vault Shared/Saved via System!`, 'log-info');
+
+        } else {
+            // اگر کمپیوٹر کا عام براؤزر ہے تو پرانے طریقے سے ڈاؤنلوڈ کروائیں
+            const url = URL.createObjectURL(blob);
+            let a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a); 
+            a.click(); 
+            a.remove();
+            URL.revokeObjectURL(url);
+            
+            logToUI(`💾 Vault Downloaded!`, 'log-info');
+        }
+    } catch (err) {
+        // اگر صارف شیئرنگ کو کینسل کر دے تو کوئی ایرر نہ دکھائیں
+        if (err.name !== 'AbortError') {
+            console.error("Export Error:", err);
+            alert("❌ Error: " + err.message);
+        }
+    }
 }
 
 function flushMemory() {
