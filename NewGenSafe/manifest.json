@@ -1,6 +1,7 @@
 {
   "name": "GenSafe - Offline Password Manager",
   "short_name": "GenSafe",
+  "description": "A fully offline, highly secure password generator and encrypted vault.",
   "start_url": "./GenSafe.html",
   "display": "standalone",
   "background_color": "#ecf0f1",
