@@ -91,51 +91,41 @@ async function exportDatabase() {
     if(!pass || !pin) return alert("Master Password and PIN are required for securely encrypting your vault.");
     if (currentDatabase.length === 0) return alert("Database is empty. Nothing to export.");
 
-    try {
-        let key = await deriveAESKey(pass, pin);
-        let encStr = await encryptData(JSON.stringify(currentDatabase), key);
-        
-        const fileName = "my_gensafe_vault.json";
-        const jsonContent = JSON.stringify({data: encStr}, null, 2);
-        
-        // Data URI کی جگہ Blob کا استعمال تاکہ ڈیٹا کی لمبائی کا مسئلہ نہ آئے
-        const blob = new Blob([jsonContent], { type: 'application/json' });
-        const file = new File([blob], fileName, { type: 'application/json' });
+    // 1. ڈیٹا کو انکرپٹ کریں (پہلے کی طرح)
+    let key = await deriveAESKey(pass, pin);
+    let encStr = await encryptData(JSON.stringify(currentDatabase), key);
+    
+    // 2. فائل کا ڈیٹا تیار کریں
+    let jsonString = JSON.stringify({data: encStr}, null, 2);
+    let blob = new Blob([jsonString], { type: "application/json" });
+    let file = new File([blob], "my_gensafe_vault.json", { type: "application/json" });
 
-        // اگر ایپ موبائل (اینڈرائیڈ) پر ہے تو مقامی Share/Save مینو کھولیں
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    // 3. Web Share API کا استعمال (اینڈرائیڈ ایپ کے لیے)
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
             await navigator.share({
-                files: [file],
                 title: 'GenSafe Vault',
-                text: 'Your encrypted GenSafe backup.'
+                text: 'Here is my securely encrypted GenSafe vault.',
+                files: [file]
             });
-            logToUI(`💾 Vault Shared via System!`, 'log-info');
-        } 
-        // اگر عام براؤزر ہے تو ڈاؤنلوڈ کریں
-        else {
-            const url = URL.createObjectURL(blob);
-            let a = document.createElement('a');
-            a.style.display = "none";
-            a.href = url;
-            a.download = fileName;
-            document.body.appendChild(a);
-            a.click();
-            
-            // میموری صاف کرنے کے لیے
-            setTimeout(() => {
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-            }, 100);
-            
-            logToUI(`💾 Vault Downloaded!`, 'log-info');
+            logToUI(`💾 Vault Shared/Saved! Secured ${currentDatabase.length} account(s) using AES-256.`, 'log-info');
+        } catch (err) {
+            // اگر یوزر شیئر ڈائیلاگ کینسل کر دے تو کچھ نہ کریں
+            console.log("Share dialogue closed or failed:", err);
         }
-    } catch (err) {
-        if (err.name !== 'AbortError') {
-            console.error("Export Error:", err);
-            alert("❌ Action failed: " + err.message);
-        }
+    } else {
+        // 4. Fallback (اگر کوئی پرانا براؤزر ہو یا پی سی پر استعمال ہو رہا ہو)
+        let a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = "my_gensafe_vault.json";
+        document.body.appendChild(a); 
+        a.click(); 
+        a.remove();
+        URL.revokeObjectURL(a.href); // میموری کلین اپ
+        logToUI(`💾 Vault Downloaded! Secured ${currentDatabase.length} account(s) using AES-256.`, 'log-info');
     }
 }
+
 
 function flushMemory() {
     currentDatabase = []; 
