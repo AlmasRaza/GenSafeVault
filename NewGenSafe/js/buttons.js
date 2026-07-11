@@ -91,16 +91,15 @@ async function exportDatabase() {
     if(!pass || !pin) return alert("Master Password and PIN are required for securely encrypting your vault.");
     if (currentDatabase.length === 0) return alert("Database is empty. Nothing to export.");
 
-    // 1. ڈیٹا کو انکرپٹ کریں (پہلے کی طرح)
+    // ڈیٹا کو انکرپٹ کریں
     let key = await deriveAESKey(pass, pin);
     let encStr = await encryptData(JSON.stringify(currentDatabase), key);
-    
-    // 2. فائل کا ڈیٹا تیار کریں
     let jsonString = JSON.stringify({data: encStr}, null, 2);
-    let blob = new Blob([jsonString], { type: "application/json" });
-    let file = new File([blob], "my_gensafe_vault.json", { type: "application/json" });
 
-    // 3. Web Share API کا استعمال (اینڈرائیڈ ایپ کے لیے)
+    // فائل آبجیکٹ شیئرنگ کے لیے
+    let file = new File([jsonString], "my_gensafe_vault.json", { type: "application/json" });
+
+    // 1. نیا طریقہ: Web Share API (اگر براؤزر/ایپ سپورٹ کرے)
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
         try {
             await navigator.share({
@@ -108,23 +107,29 @@ async function exportDatabase() {
                 text: 'Here is my securely encrypted GenSafe vault.',
                 files: [file]
             });
-            logToUI(`💾 Vault Shared/Saved! Secured ${currentDatabase.length} account(s) using AES-256.`, 'log-info');
+            logToUI(`💾 Vault Shared! Secured ${currentDatabase.length} account(s).`, 'log-info');
+            return; // اگر شیئر ہو گیا تو فنکشن یہیں رک جائے گا
         } catch (err) {
-            // اگر یوزر شیئر ڈائیلاگ کینسل کر دے تو کچھ نہ کریں
-            console.log("Share dialogue closed or failed:", err);
+            console.log("Share failed or cancelled:", err);
         }
-    } else {
-        // 4. Fallback (اگر کوئی پرانا براؤزر ہو یا پی سی پر استعمال ہو رہا ہو)
-        let a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = "my_gensafe_vault.json";
-        document.body.appendChild(a); 
-        a.click(); 
-        a.remove();
-        URL.revokeObjectURL(a.href); // میموری کلین اپ
-        logToUI(`💾 Vault Downloaded! Secured ${currentDatabase.length} account(s) using AES-256.`, 'log-info');
     }
+
+    // 2. پرانا اور مضبوط طریقہ: Fallback (اگر شیئر مینو فیل ہو جائے)
+    let a = document.createElement('a');
+    a.href = "data:text/json;charset=utf-8," + encodeURIComponent(jsonString);
+    a.download = "my_gensafe_vault.json";
+    document.body.appendChild(a); 
+    a.click(); 
+    a.remove();
+    
+    logToUI(`💾 Vault Downloaded! Secured ${currentDatabase.length} account(s) using AES-256.`, 'log-info');
+    
+    // ایک الرٹ تاکہ اگر ویب ویو فائل بلاک کرے تو یوزر کو پتہ چل جائے
+    setTimeout(() => {
+        alert("اگر فائل ڈاؤنلوڈ یا شیئر نہیں ہوئی، تو آپ کی ایپ کا براؤزر ڈاؤنلوڈنگ کو روک رہا ہے۔ براہ کرم इसे (GenSafe) کو نارمل گوگل کروم میں کھولیں۔");
+    }, 500);
 }
+
 
 
 function flushMemory() {
