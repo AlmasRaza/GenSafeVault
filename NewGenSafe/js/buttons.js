@@ -94,15 +94,36 @@ async function exportDatabase() {
 
     let key = await deriveAESKey(pass, pin);
     let encStr = await encryptData(JSON.stringify(currentDatabase), key);
+    let jsonData = JSON.stringify({data: encStr}, null, 2);
     
-    let a = document.createElement('a');
-    a.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({data: encStr}, null, 2));
-    a.download = "my_gensafe_vault.json";
-    document.body.appendChild(a); 
-    a.click(); 
-    a.remove();
-    
-    logToUI(`💾 Vault Saved! Secured ${currentDatabase.length} account(s) using AES-256 Encryption.`, 'log-info');
+    let fileName = "my_gensafe_vault.json";
+
+    // 1. اینڈرائیڈ کے لیے باقاعدہ فائل آبجیکٹ بنانا
+    let file = new File([jsonData], fileName, { type: "application/json" });
+
+    // 2. چیک کرنا کہ کیا موبائل کا شیئر سسٹم موجود ہے
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+            await navigator.share({
+                files: [file],
+                title: 'GenSafe Vault Backup',
+                text: 'Here is your encrypted GenSafe backup file.'
+            });
+            logToUI(`💾 Vault Shared Successfully! Secured ${currentDatabase.length} account(s).`, 'log-info');
+        } catch (err) {
+            console.log("Share cancelled or failed.", err);
+        }
+    } 
+    // 3. اگر ایپ ویب براؤزر میں کھلی ہو تو پرانا سیدھا ڈاؤنلوڈ والا طریقہ
+    else {
+        let a = document.createElement('a');
+        a.href = "data:text/json;charset=utf-8," + encodeURIComponent(jsonData);
+        a.download = fileName;
+        document.body.appendChild(a); 
+        a.click(); 
+        a.remove();
+        logToUI(`💾 Vault Downloaded! Secured ${currentDatabase.length} account(s).`, 'log-info');
+    }
 }
 
 function flushMemory() {
