@@ -14,13 +14,13 @@ jobs:
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # یہاں ہم نے Node.js کے ورژن کو 20 سے 22 کر دیا ہے
+          node-version: '22'
 
       - name: Install Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          # یہاں جاوا کا ورژن 21 کر دیا گیا ہے
           java-version: '21'
 
       - name: Create folder and copy files
@@ -41,7 +41,6 @@ jobs:
         working-directory: android
         run: |
           chmod +x gradlew
-          # stacktrace کا اضافہ کیا گیا ہے تاکہ کوئی بھی ایرر چھپے نہیں
           ./gradlew assembleDebug --stacktrace
 
       - name: Upload APK for Download
