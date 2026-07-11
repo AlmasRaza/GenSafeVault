@@ -92,42 +92,48 @@ async function exportDatabase() {
     if(!pass || !pin) return alert("Master Password and PIN are required for securely encrypting your vault.");
     if (currentDatabase.length === 0) return alert("Database is empty. Nothing to export.");
 
-    let key = await deriveAESKey(pass, pin);
-    let encStr = await encryptData(JSON.stringify(currentDatabase), key);
-    
-    // 1. ڈیٹا کو File اور Blob آبجیکٹ میں تبدیل کرنا (شیئرنگ کے لیے لازمی شرط)
-    const fileContent = JSON.stringify({data: encStr}, null, 2);
-    const fileName = "my_gensafe_vault.json";
-    const blob = new Blob([fileContent], { type: 'application/json' });
-    const file = new File([blob], fileName, { type: 'application/json' });
-
-    const successMessage = `💾 Vault Secured! ${currentDatabase.length} account(s) using AES-256.`;
-
-    // 2. اسمارٹ چیک: کیا یہ ڈیوائس/ایپ مقامی شیئرنگ (Native Share) کو سپورٹ کرتی ہے؟
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+        // 1. انکرپشن کا عمل (جو آپ کے crypto.js سے جڑا ہے)
+        let key = await deriveAESKey(pass, pin);
+        let encStr = await encryptData(JSON.stringify(currentDatabase), key);
         
-        // اگر موبائل ایپ (APK) ہے تو مقامی Share/Save مینو کھولیں
-        navigator.share({
-            files: [file],
-            title: 'GenSafe Vault',
-            text: 'My Encrypted Password Vault Backup'
-        }).then(() => {
-            logToUI(successMessage + " (Shared successfully)", 'log-info');
-        }).catch((err) => {
-            console.log("Sharing cancelled by user.");
-        });
+        // 2. ڈیٹا کو فائل (File Object) میں تبدیل کرنا
+        const fileName = "my_gensafe_vault.json";
+        const jsonContent = JSON.stringify({data: encStr}, null, 2);
+        const blob = new Blob([jsonContent], { type: 'application/json' });
+        const file = new File([blob], fileName, { type: 'application/json' });
 
-    } else {
-        // اگر کمپیوٹر کا براؤزر ہے تو پرانے طریقے سے براہ راست ڈاؤنلوڈ کروائیں
-        let a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = fileName;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(a.href); // میموری صاف کرنے کے لیے
-        
-        logToUI(successMessage + " (Downloaded)", 'log-info');
+        // 3. اسمارٹ چیک: کیا یہ اینڈرائیڈ ایپ ہے یا براؤزر؟
+        // navigator.share صرف اینڈرائیڈ ویب ویو یا موبائل براؤزر میں کام کرتا ہے
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            
+            // اگر اینڈرائیڈ ہے تو "Share Sheet" کھولیں
+            await navigator.share({
+                files: [file],
+                title: 'GenSafe Vault',
+                text: 'Your encrypted GenSafe backup'
+            });
+            logToUI(`💾 Vault Shared/Saved via System!`, 'log-info');
+
+        } else {
+            // اگر کمپیوٹر براؤزر ہے تو پرانے طریقے سے ڈاؤنلوڈ کریں
+            const url = URL.createObjectURL(blob);
+            let a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a); 
+            a.click(); 
+            a.remove();
+            URL.revokeObjectURL(url);
+            
+            logToUI(`💾 Vault Downloaded!`, 'log-info');
+        }
+    } catch (err) {
+        // اگر صارف شیئر کینسل کر دے یا کوئی ایرر آئے
+        console.error("Export Error:", err);
+        if (err.name !== 'AbortError') {
+            alert("❌ Error: " + err.message);
+        }
     }
 }
 
